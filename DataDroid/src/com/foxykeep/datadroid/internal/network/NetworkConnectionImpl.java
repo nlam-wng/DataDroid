@@ -8,19 +8,6 @@
 
 package com.foxykeep.datadroid.internal.network;
 
-import android.content.Context;
-import android.support.util.Base64;
-import android.util.Log;
-
-import com.foxykeep.datadroid.exception.ConnectionException;
-import com.foxykeep.datadroid.network.NetworkConnection.ConnectionResult;
-import com.foxykeep.datadroid.network.NetworkConnection.Method;
-import com.foxykeep.datadroid.network.UserAgentUtils;
-import com.foxykeep.datadroid.util.DataDroidLog;
-
-import org.apache.http.HttpStatus;
-import org.apache.http.auth.UsernamePasswordCredentials;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,6 +30,19 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
+import org.apache.http.HttpStatus;
+import org.apache.http.auth.UsernamePasswordCredentials;
+
+import android.content.Context;
+import android.support.util.Base64;
+import android.util.Log;
+
+import com.foxykeep.datadroid.exception.ConnectionException;
+import com.foxykeep.datadroid.network.NetworkConnection.ConnectionResult;
+import com.foxykeep.datadroid.network.NetworkConnection.Method;
+import com.foxykeep.datadroid.network.UserAgentUtils;
+import com.foxykeep.datadroid.util.DataDroidLog;
 
 /**
  * Implementation of the network connection.
@@ -90,10 +90,10 @@ public final class NetworkConnectionImpl {
      * @return The result of the webservice call.
      */
     public static ConnectionResult execute(Context context, String urlValue, Method method,
-            HashMap<String, String> parameterMap, HashMap<String, String> headerMap,
-            boolean isGzipEnabled, String userAgent, String postText,
-            UsernamePasswordCredentials credentials, boolean isSslValidationEnabled) throws
-            ConnectionException {
+                    HashMap<String, String> parameterMap, HashMap<String, String> headerMap,
+                    boolean isGzipEnabled, String userAgent, String postText,
+                    UsernamePasswordCredentials credentials, boolean isSslValidationEnabled) throws
+                    ConnectionException {
         HttpURLConnection connection = null;
         try {
             // Prepare the request information
@@ -151,24 +151,29 @@ public final class NetworkConnectionImpl {
             URL url = null;
             String outputText = null;
             switch (method) {
-                case GET:
-                case DELETE:
-                case PUT:
+            case GET:
+            case DELETE:
+            case PUT:
+                // Added check for paramBuilder.length()
+                if (paramBuilder.length() > 0) {
                     url = new URL(urlValue + "?" + paramBuilder.toString());
-                    connection = (HttpURLConnection) url.openConnection();
-                    break;
-                case POST:
+                } else {
                     url = new URL(urlValue);
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setDoOutput(true);
+                }
+                connection = (HttpURLConnection) url.openConnection();
+                break;
+            case POST:
+                url = new URL(urlValue);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setDoOutput(true);
 
-                    if (paramBuilder.length() > 0) {
-                        outputText = paramBuilder.toString();
-                        headerMap.put(CONTENT_TYPE_HEADER, "application/x-www-form-urlencoded");
-                    } else if (postText != null) {
-                        outputText = postText;
-                    }
-                    break;
+                if (paramBuilder.length() > 0) {
+                    outputText = paramBuilder.toString();
+                    headerMap.put(CONTENT_TYPE_HEADER, "application/x-www-form-urlencoded");
+                } else if (postText != null) {
+                    outputText = postText;
+                }
+                break;
             }
 
             // Set the request method
@@ -176,7 +181,7 @@ public final class NetworkConnectionImpl {
 
             // If it's an HTTPS request and the SSL Validation is disabled
             if (url.getProtocol().equals("https")
-                    && !isSslValidationEnabled) {
+                            && !isSslValidationEnabled) {
                 HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
                 httpsConnection.setSSLSocketFactory(getAllHostsValidSocketFactory());
                 httpsConnection.setHostnameVerifier(getAllHostsValidVerifier());
@@ -212,26 +217,39 @@ public final class NetworkConnectionImpl {
 
             String contentEncoding = connection.getHeaderField(CONTENT_ENCODING_HEADER);
 
+            // Added try/catch block to get response code for 401s in JellyBean
+            // http://stackoverflow.com/questions/11810447/httpurlconnection-worked-fine-in-android-2-x-but-not-in-4-1-no-authentication-c
+            try {
+                connection.getResponseCode();
+            } catch (IOException ex) {
+                int responseCode = -1;
+                try {
+                    responseCode = connection.getResponseCode();
+                } catch (Exception e) {
+                    throw ex;
+                }
+                throw new ConnectionException("Invalid response from server.", responseCode);
+            }
             int responseCode = connection.getResponseCode();
             boolean isGzip = contentEncoding != null
-                    && contentEncoding.equalsIgnoreCase("gzip");
+                            && contentEncoding.equalsIgnoreCase("gzip");
             DataDroidLog.d(TAG, "Response code: " + responseCode);
 
             if (responseCode == HttpStatus.SC_MOVED_PERMANENTLY) {
                 String redirectionUrl = connection.getHeaderField(LOCATION_HEADER);
                 throw new ConnectionException("New location : " + redirectionUrl,
-                        redirectionUrl);
+                                redirectionUrl);
             }
 
             InputStream errorStream = connection.getErrorStream();
             if (errorStream != null) {
                 String error = convertStreamToString(connection.getInputStream(),
-                        isGzip);
+                                isGzip);
                 throw new ConnectionException(error, responseCode);
             }
 
             String body = convertStreamToString(connection.getInputStream(),
-                    isGzip);
+                            isGzip);
 
             if (DataDroidLog.canLog(Log.VERBOSE)) {
                 DataDroidLog.v(TAG, "Response body: ");
@@ -270,18 +288,21 @@ public final class NetworkConnectionImpl {
     private static SSLSocketFactory sAllHostsValidSocketFactory;
 
     private static SSLSocketFactory getAllHostsValidSocketFactory()
-            throws NoSuchAlgorithmException, KeyManagementException {
+                    throws NoSuchAlgorithmException, KeyManagementException {
         if (sAllHostsValidSocketFactory == null) {
             TrustManager[] trustAllCerts = new TrustManager[] {
-                new X509TrustManager() {
-                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
+                            new X509TrustManager() {
+                                @Override
+                                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                                    return null;
+                                }
 
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                                @Override
+                                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
 
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                }
+                                @Override
+                                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                            }
             };
 
             SSLContext sc = SSLContext.getInstance("SSL");
@@ -297,6 +318,7 @@ public final class NetworkConnectionImpl {
     private static HostnameVerifier getAllHostsValidVerifier() {
         if (sAllHostsValidVerifier == null) {
             sAllHostsValidVerifier = new HostnameVerifier() {
+                @Override
                 public boolean verify(String hostname, SSLSession session) {
                     return true;
                 }
@@ -307,7 +329,7 @@ public final class NetworkConnectionImpl {
     }
 
     private static String convertStreamToString(InputStream is, boolean isGzipEnabled)
-            throws IOException {
+                    throws IOException {
         InputStream cleanedIs = is;
         if (isGzipEnabled) {
             cleanedIs = new GZIPInputStream(is);
