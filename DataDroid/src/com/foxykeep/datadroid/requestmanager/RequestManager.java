@@ -8,6 +8,15 @@
 
 package com.foxykeep.datadroid.requestmanager;
 
+import java.lang.ref.WeakReference;
+import java.util.Collections;
+import java.util.EventListener;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.apache.http.HttpStatus;
+
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
@@ -18,17 +27,9 @@ import android.os.Looper;
 import android.os.ResultReceiver;
 import android.support.util.LruCache;
 
+import com.foxykeep.datadroid.exception.ConnectionException;
 import com.foxykeep.datadroid.service.RequestService;
 import com.foxykeep.datadroid.util.DataDroidLog;
-
-import org.apache.http.HttpStatus;
-
-import java.lang.ref.WeakReference;
-import java.util.Collections;
-import java.util.EventListener;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * This class allows to send requests through a {@link RequestService}.
@@ -71,6 +72,20 @@ public abstract class RequestManager {
         public void onRequestConnectionError(Request request, int statusCode);
 
         /**
+         * Event fired when a request encountered a connection error.
+         * 
+         * @param request
+         *            The {@link Request} defining the request.
+         * @param ex
+         *            The {@link ConnectionException} that caused the error.
+         * @param statusCode
+         *            The HTTP status code returned by the server (if the request succeeded by the
+         *            HTTP status code was not {@link HttpStatus#SC_OK}) or -1 if it was a
+         *            connection problem
+         */
+        public void onRequestConnectionError(Request request, ConnectionException ex, int statusCode);
+
+        /**
          * Event fired when a request encountered a data error.
          *
          * @param request The {@link Request} defining the request.
@@ -90,7 +105,8 @@ public abstract class RequestManager {
     public static final String RECEIVER_EXTRA_PAYLOAD = "com.foxykeep.datadroid.extra.payload";
     public static final String RECEIVER_EXTRA_ERROR_TYPE = "com.foxykeep.datadroid.extra.error";
     public static final String RECEIVER_EXTRA_CONNECTION_ERROR_STATUS_CODE =
-            "com.foxykeep.datadroid.extra.connectionErrorStatusCode";
+                    "com.foxykeep.datadroid.extra.connectionErrorStatusCode";
+    public static final String                      RECEIVER_EXTRA_CONNECTION_ERROR             = "com.foxykeep.datadroid.extra.connectionError";
     public static final int ERROR_TYPE_CONNEXION = 1;
     public static final int ERROR_TYPE_DATA = 2;
     public static final int ERROR_TYPE_CUSTOM = 3;
@@ -225,7 +241,7 @@ public abstract class RequestManager {
         }
         if (mRequestReceiverMap.containsKey(request)) {
             DataDroidLog.d(TAG,
-                    "This request is already in progress. Adding the new listener to it.");
+                            "This request is already in progress. Adding the new listener to it.");
 
             // This exact request is already in progress. Adding the new listener.
             addRequestListener(listener, request);
@@ -316,17 +332,23 @@ public abstract class RequestManager {
             if (listener != null) {
                 if (resultCode == RequestService.ERROR_CODE) {
                     switch(resultData.getInt(RECEIVER_EXTRA_ERROR_TYPE)){
-                        case ERROR_TYPE_DATA:
-                            listener.onRequestDataError(request);
-                            break;
-                        case ERROR_TYPE_CONNEXION:
-                            int statusCode =
-                                    resultData.getInt(RECEIVER_EXTRA_CONNECTION_ERROR_STATUS_CODE);
+                    case ERROR_TYPE_DATA:
+                        listener.onRequestDataError(request);
+                        break;
+                    case ERROR_TYPE_CONNEXION:
+                        int statusCode =
+                        resultData.getInt(RECEIVER_EXTRA_CONNECTION_ERROR_STATUS_CODE);
+                        ConnectionException ex = (ConnectionException) resultData
+                                        .getSerializable(RECEIVER_EXTRA_CONNECTION_ERROR);
+                        if (ex == null) {
                             listener.onRequestConnectionError(request, statusCode);
-                            break;
-                        case ERROR_TYPE_CUSTOM:
-                            listener.onRequestCustomError(request, resultData);
-                            break;
+                        } else {
+                            listener.onRequestConnectionError(request, ex, statusCode);
+                        }
+                        break;
+                    case ERROR_TYPE_CUSTOM:
+                        listener.onRequestCustomError(request, resultData);
+                        break;
                     }
                 } else {
                     listener.onRequestFinished(request, resultData);
@@ -339,7 +361,7 @@ public abstract class RequestManager {
             if (o instanceof ListenerHolder) {
                 ListenerHolder oHolder = (ListenerHolder) o;
                 return mListenerRef != null && oHolder.mListenerRef != null
-                        && mHashCode == oHolder.mHashCode;
+                                && mHashCode == oHolder.mHashCode;
             }
             return false;
         }

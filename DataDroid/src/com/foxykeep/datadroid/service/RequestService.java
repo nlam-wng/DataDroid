@@ -50,7 +50,7 @@ public abstract class RequestService extends MultiThreadedIntentService {
          *             Exception thrown.
          */
         public Bundle execute(Context context, Request request) throws ConnectionException,
-                DataException, CustomRequestException;
+        DataException, CustomRequestException;
     }
 
     public static final String LOG_TAG = RequestService.class.getSimpleName();
@@ -82,6 +82,7 @@ public abstract class RequestService extends MultiThreadedIntentService {
         Bundle data = new Bundle();
         data.putInt(RequestManager.RECEIVER_EXTRA_ERROR_TYPE, RequestManager.ERROR_TYPE_CONNEXION);
         data.putInt(RequestManager.RECEIVER_EXTRA_CONNECTION_ERROR_STATUS_CODE, e.getStatusCode());
+        data.putSerializable(RequestManager.RECEIVER_EXTRA_CONNECTION_ERROR, e);
         sendResult(receiver, data, ERROR_CODE);
     }
 
