@@ -217,19 +217,6 @@ public final class NetworkConnectionImpl {
 
             String contentEncoding = connection.getHeaderField(CONTENT_ENCODING_HEADER);
 
-            // Added try/catch block to get response code for 401s in JellyBean
-            // http://stackoverflow.com/questions/11810447/httpurlconnection-worked-fine-in-android-2-x-but-not-in-4-1-no-authentication-c
-            try {
-                connection.getResponseCode();
-            } catch (IOException ex) {
-                int responseCode = -1;
-                try {
-                    responseCode = connection.getResponseCode();
-                } catch (Exception e) {
-                    throw ex;
-                }
-                throw new ConnectionException("Invalid response from server.", responseCode);
-            }
             int responseCode = connection.getResponseCode();
             boolean isGzip = contentEncoding != null
                             && contentEncoding.equalsIgnoreCase("gzip");
