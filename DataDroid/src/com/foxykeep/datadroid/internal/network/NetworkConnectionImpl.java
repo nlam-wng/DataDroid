@@ -230,7 +230,7 @@ public final class NetworkConnectionImpl {
 
             InputStream errorStream = connection.getErrorStream();
             if (errorStream != null) {
-                String error = convertStreamToString(connection.getInputStream(),
+                String error = convertStreamToString(connection.getErrorStream(),
                                 isGzip);
                 throw new ConnectionException(error, responseCode);
             }
