@@ -9,6 +9,7 @@
 package com.foxykeep.datadroid.internal.network;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -235,10 +236,11 @@ public final class NetworkConnectionImpl {
                 throw new ConnectionException(error, responseCode);
             }
 
-            String body = convertStreamToString(connection.getInputStream(),
-                            isGzip);
+
+            byte[] bodyRaw = convertStreamToBytes(connection.getInputStream(), isGzip);
 
             if (DataDroidLog.canLog(Log.VERBOSE)) {
+                String body = new String(bodyRaw, UTF8_CHARSET);
                 DataDroidLog.v(TAG, "Response body: ");
 
                 int pos = 0;
@@ -248,8 +250,7 @@ public final class NetworkConnectionImpl {
                     pos = pos + 200;
                 }
             }
-
-            return new ConnectionResult(connection.getHeaderFields(), body);
+            return new ConnectionResult(connection.getHeaderFields(), bodyRaw);
         } catch (IOException e) {
             DataDroidLog.e(TAG, "IOException", e);
             throw new ConnectionException(e);
@@ -313,6 +314,26 @@ public final class NetworkConnectionImpl {
         }
 
         return sAllHostsValidVerifier;
+    }
+    private static byte[] convertStreamToBytes(InputStream is, boolean isGzipEnabled) throws IOException {
+        InputStream cleanedIs = is;
+        if (isGzipEnabled) {
+            cleanedIs = new GZIPInputStream(is);
+        }
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        int nRead;
+        byte[] data = new byte[16384];
+
+        while ((nRead = cleanedIs.read(data, 0, data.length)) != -1) {
+          buffer.write(data, 0, nRead);
+        }
+
+        buffer.flush();
+
+        return buffer.toByteArray();
+
+      
     }
 
     private static String convertStreamToString(InputStream is, boolean isGzipEnabled)

@@ -16,6 +16,7 @@ import com.foxykeep.datadroid.util.DataDroidLog;
 
 import org.apache.http.auth.UsernamePasswordCredentials;
 
+import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +44,20 @@ public final class NetworkConnection {
     public static final class ConnectionResult {
 
         public Map<String, List<String>> headerMap;
-        public String body;
+        public byte[] bodyRaw;
 
-        public ConnectionResult(Map<String, List<String>> headerMap, String body) {
+        public ConnectionResult(Map<String, List<String>> headerMap, byte[] bodyRaw) {
             this.headerMap = headerMap;
-            this.body = body;
+            this.bodyRaw = bodyRaw;
+        }
+        public String getBody() {
+            try {
+                return new String(bodyRaw, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return null;
         }
     }
 
