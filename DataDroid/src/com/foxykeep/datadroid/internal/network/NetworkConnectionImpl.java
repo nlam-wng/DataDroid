@@ -250,7 +250,7 @@ public final class NetworkConnectionImpl {
                     pos = pos + 200;
                 }
             }
-            return new ConnectionResult(connection.getHeaderFields(), bodyRaw);
+            return new ConnectionResult(connection.getHeaderFields(), bodyRaw, responseCode);
         } catch (IOException e) {
             DataDroidLog.e(TAG, "IOException", e);
             throw new ConnectionException(e);

@@ -45,10 +45,12 @@ public final class NetworkConnection {
 
         public Map<String, List<String>> headerMap;
         public byte[] bodyRaw;
+        public int responseCode;
 
-        public ConnectionResult(Map<String, List<String>> headerMap, byte[] bodyRaw) {
+        public ConnectionResult(Map<String, List<String>> headerMap, byte[] bodyRaw, int responseCode) {
             this.headerMap = headerMap;
             this.bodyRaw = bodyRaw;
+            this.responseCode = responseCode;
         }
         public String getBody() {
             try {
